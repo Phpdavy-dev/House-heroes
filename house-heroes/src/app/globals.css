@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+.dark {
+  color-scheme: dark;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  font-family: "Nunito", ui-rounded, system-ui, -apple-system, sans-serif;
+  @apply bg-cream text-ink antialiased;
+}
+.dark body {
+  @apply bg-night text-cream;
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl2 bg-white shadow-card dark:bg-night-card;
+  }
+  .btn-big {
+    @apply rounded-xl2 font-extrabold transition active:scale-95 select-none;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-bold;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
