@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { useHouseData } from "@/lib/useData";
 import { Profile } from "@/lib/types";
 import { addDays, dayKey, startOfDay, startOfWeek } from "@/lib/dates";
@@ -154,6 +155,9 @@ export default function Stats({ me, data }: { me: Profile; data: HouseData }) {
         </div>
       </section>
 
+      {/* Geschiedenis per dag */}
+      <HistorySection me={me} data={data} />
+
       <button onClick={exportCsv} className="btn-big card p-4">
         📥 Exporteer statistieken (Excel/CSV)
       </button>
@@ -168,5 +172,120 @@ function Card({ title, value, emoji }: { title: string; value: string; emoji: st
       <p className="mt-1 text-xl font-black">{value}</p>
       <p className="text-xs font-bold text-ink/40 dark:text-cream/40">{title}</p>
     </div>
+  );
+}
+
+const DAY_LABEL = new Intl.DateTimeFormat("nl-NL", {
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+});
+
+function HistorySection({ me, data }: { me: Profile; data: HouseData }) {
+  const { profiles, chores, logs } = data;
+  const [personId, setPersonId] = useState(me.id);
+  const [daysShown, setDaysShown] = useState(7);
+
+  const grouped = useMemo(() => {
+    const mine = logs.filter((l) => l.user_id === personId && l.status !== "rejected");
+    const map = new Map<string, typeof mine>();
+    for (const l of mine) {
+      const key = new Date(l.created_at).toDateString();
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(l);
+    }
+    return Array.from(map.entries()); // al gesorteerd: logs staan nieuwste eerst
+  }, [logs, personId]);
+
+  const visible = grouped.slice(0, daysShown);
+  const person = profiles.find((p) => p.id === personId);
+
+  return (
+    <section className="animate-rise">
+      <h2 className="mb-2 px-1 text-sm font-black uppercase tracking-wide text-ink/40 dark:text-cream/40">
+        Klusjes per dag
+      </h2>
+
+      {/* Persoon kiezen */}
+      <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
+        {profiles.map((p) => (
+          <button
+            key={p.id}
+            onClick={() => {
+              setPersonId(p.id);
+              setDaysShown(7);
+            }}
+            className={`chip shrink-0 ${
+              p.id === personId
+                ? "bg-coral text-white"
+                : "bg-white shadow-card dark:bg-night-card"
+            }`}
+          >
+            {p.emoji} {p.name}
+          </button>
+        ))}
+      </div>
+
+      {visible.length === 0 && (
+        <div className="card p-4 text-sm font-bold text-ink/40 dark:text-cream/40">
+          {person?.name} heeft nog geen klusjes geregistreerd.
+        </div>
+      )}
+
+      <div className="flex flex-col gap-3">
+        {visible.map(([dayKey, dayLogs]) => {
+          const approvedPts = dayLogs
+            .filter((l) => l.status === "approved")
+            .reduce((s, l) => s + l.points, 0);
+          return (
+            <div key={dayKey} className="card p-3">
+              <div className="mb-1 flex items-baseline justify-between">
+                <p className="text-sm font-black capitalize">{DAY_LABEL.format(new Date(dayKey))}</p>
+                <span className="text-xs font-extrabold text-teal-deep dark:text-teal">
+                  +{approvedPts} ptn
+                </span>
+              </div>
+              <div className="divide-y divide-ink/5 dark:divide-night-line">
+                {dayLogs.map((l) => {
+                  const chore = chores.find((c) => c.id === l.chore_id);
+                  return (
+                    <div key={l.id} className="flex items-center gap-2 py-1.5">
+                      <span>{chore?.emoji ?? "🧹"}</span>
+                      <p className="min-w-0 flex-1 truncate text-sm font-bold">
+                        {chore?.name ?? "verwijderde klus"}
+                      </p>
+                      <span className="text-xs font-bold text-ink/40 dark:text-cream/40">
+                        {new Date(l.created_at).toLocaleTimeString("nl-NL", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                      <span
+                        className={`chip ${
+                          l.status === "approved"
+                            ? "bg-teal-soft text-teal-deep dark:bg-teal/20 dark:text-teal"
+                            : "bg-sun-soft text-amber-700 dark:bg-sun/20 dark:text-sun"
+                        }`}
+                      >
+                        {l.status === "approved" ? `+${l.points}` : "wacht"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {grouped.length > daysShown && (
+        <button
+          onClick={() => setDaysShown((d) => d + 7)}
+          className="btn-big card mt-3 w-full p-3 text-sm"
+        >
+          Meer dagen tonen
+        </button>
+      )}
+    </section>
   );
 }

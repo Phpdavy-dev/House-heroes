@@ -77,6 +77,15 @@ export function useHouseData() {
     [supabase, refresh]
   );
 
+  const deleteLog = useCallback(
+    async (logId: number) => {
+      if (!supabase) return;
+      await supabase.from("chore_logs").delete().eq("id", logId);
+      refresh();
+    },
+    [supabase, refresh]
+  );
+
   const updateChore = useCallback(
     async (id: number, patch: Partial<Chore>) => {
       if (!supabase) return;
@@ -95,5 +104,20 @@ export function useHouseData() {
     [supabase, refresh]
   );
 
-  return { profiles, chores, logs, loading, error, logChore, decideLog, updateChore, addChore, refresh };
+  const deleteChore = useCallback(
+    async (id: number) => {
+      if (!supabase) return;
+      await supabase.from("chores").delete().eq("id", id);
+      refresh();
+    },
+    [supabase, refresh]
+  );
+
+  const resetLogs = useCallback(async () => {
+    if (!supabase) return;
+    await supabase.from("chore_logs").delete().gt("id", 0);
+    refresh();
+  }, [supabase, refresh]);
+
+  return { profiles, chores, logs, loading, error, logChore, decideLog, deleteLog, updateChore, addChore, deleteChore, resetLogs, refresh };
 }

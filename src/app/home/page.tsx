@@ -10,6 +10,7 @@ import ChoreGrid from "@/components/ChoreGrid";
 import Leaderboard from "@/components/Leaderboard";
 import Stats from "@/components/Stats";
 import Admin from "@/components/Admin";
+import { canApprove } from "@/lib/gamification";
 
 const TABS: { id: Tab; label: string; emoji: string }[] = [
   { id: "dashboard", label: "Home", emoji: "🏠" },
@@ -76,6 +77,8 @@ export default function HomeApp() {
 
   if (!me) return null;
 
+  const visibleTabs = TABS.filter((t) => t.id !== "admin" || canApprove(me));
+
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col">
       <header className="sticky top-0 z-10 flex items-center gap-3 bg-cream/90 px-5 pb-2 pt-4 backdrop-blur dark:bg-night/90">
@@ -113,12 +116,12 @@ export default function HomeApp() {
         {tab === "klusjes" && <ChoreGrid me={me} data={data} />}
         {tab === "scorebord" && <Leaderboard me={me} data={data} />}
         {tab === "stats" && <Stats me={me} data={data} />}
-        {tab === "admin" && <Admin data={data} />}
+        {tab === "admin" && canApprove(me) && <Admin me={me} data={data} />}
       </main>
 
       <nav className="fixed inset-x-0 bottom-0 z-10 mx-auto max-w-md border-t border-ink/5 bg-white/95 px-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-2 backdrop-blur dark:border-night-line dark:bg-night-card/95">
         <div className="flex">
-          {TABS.map((t) => (
+          {visibleTabs.map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}

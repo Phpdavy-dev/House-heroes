@@ -13,6 +13,7 @@ import {
 } from "@/lib/dates";
 import {
   approvedLogs,
+  canApprove,
   levelFor,
   logsBetween,
   logsOf,
@@ -66,7 +67,9 @@ export default function Dashboard({
   const { current: streak } = streaks(myAll);
 
   const notices = noticesFor(me, profiles, logs);
-  const pendingForMe = logs.filter((l) => l.status === "pending" && l.user_id !== me.id);
+  const pendingForMe = canApprove(me)
+    ? logs.filter((l) => l.status === "pending" && l.user_id !== me.id)
+    : [];
 
   // confetti zodra het weekdoel gehaald is
   const celebrated = useRef(false);

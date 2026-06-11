@@ -11,6 +11,13 @@ import {
 
 export const WEEK_GOAL_CHORES = 7; // gemiddeld 1 klus per dag
 
+/** Alleen deze bewoners mogen klusjes goedkeuren */
+export const APPROVER_NAMES = ["Manuela", "Davy"];
+
+export function canApprove(p: Profile): boolean {
+  return APPROVER_NAMES.includes(p.name);
+}
+
 export const LEVELS = [
   { name: "Beginner", emoji: "🌱", min: 0 },
   { name: "Helper", emoji: "🧤", min: 250 },
@@ -192,10 +199,10 @@ export function noticesFor(
   const myWeek = logsOf(logsBetween(approved, weekStart), me.id);
   const { status, diff } = weekGoalStatus(myWeek.length);
 
-  // goedkeuringen die op mij wachten
-  const pendingOthers = logs.filter(
-    (l) => l.status === "pending" && l.user_id !== me.id
-  ).length;
+  // goedkeuringen die op mij wachten (alleen voor goedkeurders)
+  const pendingOthers = canApprove(me)
+    ? logs.filter((l) => l.status === "pending" && l.user_id !== me.id).length
+    : 0;
   if (pendingOthers > 0)
     out.push({
       id: "pending",

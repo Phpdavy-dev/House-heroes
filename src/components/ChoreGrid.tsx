@@ -5,16 +5,24 @@ import confetti from "canvas-confetti";
 import { useHouseData } from "@/lib/useData";
 import { Profile } from "@/lib/types";
 import { formatTime } from "@/lib/dates";
+import { canApprove } from "@/lib/gamification";
 import { playLog } from "@/lib/sounds";
 
 type HouseData = ReturnType<typeof useHouseData>;
 
 export default function ChoreGrid({ me, data }: { me: Profile; data: HouseData }) {
-  const { chores, logs, profiles, logChore } = data;
+  const { chores, logs, profiles, logChore, deleteLog } = data;
   const [justLogged, setJustLogged] = useState<number | null>(null);
   const active = chores.filter((c) => c.active);
+  const isAdmin = canApprove(me);
 
-  const recent = logs.slice(0, 8);
+  const recent = logs.slice(0, isAdmin ? 15 : 8);
+
+  async function handleDelete(logId: number, label: string) {
+    if (window.confirm(`"${label}" verwijderen? De punten vervallen dan.`)) {
+      await deleteLog(logId);
+    }
+  }
 
   async function handleLog(choreId: number) {
     const chore = chores.find((c) => c.id === choreId);
@@ -31,7 +39,7 @@ export default function ChoreGrid({ me, data }: { me: Profile; data: HouseData }
       <div>
         <h1 className="mb-1 text-2xl font-black">Klus registreren</h1>
         <p className="text-sm font-bold text-ink/50 dark:text-cream/50">
-          Eén tik en hij staat erin. Een huisgenoot keurt hem daarna goed.
+          Eén tik en hij staat erin. Manuela of Davy keurt hem daarna goed.
         </p>
       </div>
 
@@ -87,6 +95,15 @@ export default function ChoreGrid({ me, data }: { me: Profile; data: HouseData }
                     {l.status === "pending" && "wacht"}
                     {l.status === "rejected" && "afgekeurd"}
                   </span>
+                  {isAdmin && (
+                    <button
+                      onClick={() => handleDelete(l.id, `${who?.name}: ${chore?.name}`)}
+                      className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-ink/5 transition active:scale-90 dark:bg-cream/10"
+                      title="Registratie verwijderen"
+                    >
+                      🗑️
+                    </button>
+                  )}
                 </div>
               );
             })}
