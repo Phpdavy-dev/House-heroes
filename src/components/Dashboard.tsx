@@ -15,6 +15,8 @@ import {
   approvedLogs,
   canApprove,
   levelFor,
+  taskNoticesFor,
+  todayTasksFor,
   logsBetween,
   logsOf,
   noticesFor,
@@ -44,7 +46,7 @@ export default function Dashboard({
   data: HouseData;
   goLog: () => void;
 }) {
-  const { profiles, chores, logs, decideLog } = data;
+  const { profiles, chores, logs, assignments, decideLog } = data;
   const weekStart = startOfWeek();
   const monthStart = startOfMonth();
   const approved = approvedLogs(logs);
@@ -66,7 +68,11 @@ export default function Dashboard({
   const level = levelFor(totalPoints);
   const { current: streak } = streaks(myAll);
 
-  const notices = noticesFor(me, profiles, logs);
+  const notices = [
+    ...taskNoticesFor(me.id, assignments, chores, logs),
+    ...noticesFor(me, profiles, logs),
+  ];
+  const todayTasks = todayTasksFor(me.id, assignments, chores, logs);
   const pendingForMe = canApprove(me)
     ? logs.filter((l) => l.status === "pending" && l.user_id !== me.id)
     : [];
@@ -167,6 +173,37 @@ export default function Dashboard({
       >
         + Klus registreren
       </button>
+
+      {/* Vaste taken van vandaag */}
+      {todayTasks.length > 0 && (
+        <section className="animate-rise">
+          <h2 className="mb-2 px-1 text-sm font-black uppercase tracking-wide text-ink/40 dark:text-cream/40">
+            Jouw vaste taken vandaag
+          </h2>
+          <div className="card divide-y divide-ink/5 dark:divide-night-line">
+            {todayTasks.map((t) => (
+              <div key={t.assignment.id} className="flex items-center gap-3 p-3">
+                <span className="text-2xl">{t.chore?.emoji ?? "🧹"}</span>
+                <div className="min-w-0 flex-1">
+                  <p className={`truncate font-extrabold ${t.done ? "line-through opacity-50" : ""}`}>
+                    {t.chore?.name ?? "verwijderde klus"}
+                  </p>
+                  <p className="text-xs font-bold text-ink/40 dark:text-cream/40">
+                    +{t.chore?.points ?? 0} ptn
+                  </p>
+                </div>
+                {t.done ? (
+                  <span className="chip bg-teal-soft text-teal-deep dark:bg-teal/20 dark:text-teal">✓ gedaan</span>
+                ) : (
+                  <button onClick={goLog} className="btn-big bg-coral px-3 py-2 text-sm text-white">
+                    Doen
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Meldingen */}
       {notices.length > 0 && (

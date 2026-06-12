@@ -75,3 +75,16 @@ insert into chores (name, emoji, points, category) values
   ('Was opvouwen', '🧦', 15, 'was'),
   ('Afval wegbrengen', '🗑️', 10, 'overig'),
   ('Ramen lappen', '🪟', 30, 'schoonmaak');
+
+-- ===== Update: vaste taken per weekdag =====
+create table if not exists assignments (
+  id serial primary key,
+  user_id int not null references profiles(id) on delete cascade,
+  chore_id int not null references chores(id) on delete cascade,
+  weekday int not null check (weekday between 1 and 7) -- 1=maandag ... 7=zondag
+);
+
+alter table assignments enable row level security;
+create policy "read assignments" on assignments for select using (true);
+create policy "write assignments" on assignments for all using (true) with check (true);
+alter publication supabase_realtime add table assignments;

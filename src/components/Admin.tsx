@@ -4,11 +4,15 @@ import { useState } from "react";
 import { useHouseData } from "@/lib/useData";
 import { Profile } from "@/lib/types";
 import { formatTime } from "@/lib/dates";
+import { WEEKDAY_NAMES } from "@/lib/gamification";
 
 type HouseData = ReturnType<typeof useHouseData>;
 
 export default function Admin({ me, data }: { me: Profile; data: HouseData }) {
-  const { chores, profiles, logs, updateChore, addChore, deleteChore, deleteLog, resetLogs } = data;
+  const { chores, profiles, logs, assignments, updateChore, addChore, deleteChore, deleteLog, resetLogs, addAssignment, deleteAssignment } = data;
+  const [taskUser, setTaskUser] = useState(0);
+  const [taskChore, setTaskChore] = useState(0);
+  const [taskDay, setTaskDay] = useState(1);
   const [name, setName] = useState("");
   const [emoji, setEmoji] = useState("🧹");
   const [points, setPoints] = useState(10);
@@ -167,6 +171,87 @@ export default function Admin({ me, data }: { me: Profile; data: HouseData }) {
             );
           })}
         </div>
+      </section>
+
+      {/* Vaste taken */}
+      <section className="card flex flex-col gap-3 p-4">
+        <h2 className="text-sm font-black uppercase tracking-wide text-ink/40 dark:text-cream/40">
+          Vaste taken (wekelijks)
+        </h2>
+        <p className="-mt-2 text-xs font-bold text-ink/40 dark:text-cream/40">
+          Bijv. elke dinsdag de vaatwasser voor Jayden. Diegene krijgt er die dag een melding van op het dashboard.
+        </p>
+        <div className="flex flex-col gap-2">
+          <select
+            value={taskUser}
+            onChange={(e) => setTaskUser(Number(e.target.value))}
+            className="rounded-lg border border-ink/10 bg-transparent px-2 py-2 font-bold dark:border-night-line dark:bg-night-card"
+          >
+            <option value={0}>Wie?</option>
+            {profiles.map((p) => (
+              <option key={p.id} value={p.id}>{p.emoji} {p.name}</option>
+            ))}
+          </select>
+          <select
+            value={taskChore}
+            onChange={(e) => setTaskChore(Number(e.target.value))}
+            className="rounded-lg border border-ink/10 bg-transparent px-2 py-2 font-bold dark:border-night-line dark:bg-night-card"
+          >
+            <option value={0}>Welke klus?</option>
+            {chores.filter((c) => c.active).map((c) => (
+              <option key={c.id} value={c.id}>{c.emoji} {c.name}</option>
+            ))}
+          </select>
+          <select
+            value={taskDay}
+            onChange={(e) => setTaskDay(Number(e.target.value))}
+            className="rounded-lg border border-ink/10 bg-transparent px-2 py-2 font-bold capitalize dark:border-night-line dark:bg-night-card"
+          >
+            {WEEKDAY_NAMES.map((d, i) => (
+              <option key={i} value={i + 1}>elke {d}</option>
+            ))}
+          </select>
+          <button
+            onClick={() => {
+              if (taskUser && taskChore) {
+                addAssignment(taskUser, taskChore, taskDay);
+                setTaskUser(0);
+                setTaskChore(0);
+              }
+            }}
+            className="btn-big bg-teal p-3 text-white disabled:opacity-40"
+            disabled={!taskUser || !taskChore}
+          >
+            Vaste taak toevoegen
+          </button>
+        </div>
+
+        {assignments.length > 0 && (
+          <div className="divide-y divide-ink/5 dark:divide-night-line">
+            {assignments.map((a) => {
+              const who = profiles.find((p) => p.id === a.user_id);
+              const chore = chores.find((c) => c.id === a.chore_id);
+              return (
+                <div key={a.id} className="flex items-center gap-2 py-2">
+                  <span className="text-lg">{who?.emoji}</span>
+                  <p className="min-w-0 flex-1 truncate text-sm font-extrabold">
+                    {who?.name}: {chore?.emoji} {chore?.name}
+                    <span className="ml-1 font-bold capitalize text-ink/40 dark:text-cream/40">
+                      · {WEEKDAY_NAMES[a.weekday - 1]}
+                    </span>
+                  </p>
+                  <button
+                    onClick={() => deleteAssignment(a.id)}
+                    className="chip bg-coral-soft text-coral-deep dark:bg-coral/20 dark:text-coral"
+                    title="Vaste taak verwijderen"
+                  >
+                    🗑️
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       {/* Gevarenzone */}

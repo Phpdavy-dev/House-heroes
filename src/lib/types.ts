@@ -28,3 +28,10 @@ export type ChoreLog = {
 };
 
 export type Tab = "dashboard" | "klusjes" | "scorebord" | "stats" | "admin";
+
+export type Assignment = {
+  id: number;
+  user_id: number;
+  chore_id: number;
+  weekday: number; // 1 = maandag ... 7 = zondag
+};

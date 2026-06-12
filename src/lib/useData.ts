@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { getSupabase } from "./supabase";
-import { Chore, ChoreLog, Profile } from "./types";
+import { Assignment, Chore, ChoreLog, Profile } from "./types";
 
 export function useHouseData() {
   const supabase = getSupabase();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [chores, setChores] = useState<Chore[]>([]);
   const [logs, setLogs] = useState<ChoreLog[]>([]);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,10 +19,11 @@ export function useHouseData() {
       setLoading(false);
       return;
     }
-    const [p, c, l] = await Promise.all([
+    const [p, c, l, a] = await Promise.all([
       supabase.from("profiles").select("*").order("id"),
       supabase.from("chores").select("*").order("id"),
       supabase.from("chore_logs").select("*").order("created_at", { ascending: false }),
+      supabase.from("assignments").select("*").order("weekday"),
     ]);
     if (p.error || c.error || l.error) {
       setError(p.error?.message || c.error?.message || l.error?.message || "Onbekende fout");
@@ -29,6 +31,7 @@ export function useHouseData() {
       setProfiles(p.data as Profile[]);
       setChores(c.data as Chore[]);
       setLogs(l.data as ChoreLog[]);
+      setAssignments((a.data as Assignment[]) ?? []); // tabel kan ontbreken als SQL-update nog niet is gedraaid
       setError(null);
     }
     setLoading(false);
@@ -41,6 +44,7 @@ export function useHouseData() {
       .channel("house-heroes")
       .on("postgres_changes", { event: "*", schema: "public", table: "chore_logs" }, refresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "chores" }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "assignments" }, refresh)
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
@@ -119,5 +123,23 @@ export function useHouseData() {
     refresh();
   }, [supabase, refresh]);
 
-  return { profiles, chores, logs, loading, error, logChore, decideLog, deleteLog, updateChore, addChore, deleteChore, resetLogs, refresh };
+  const addAssignment = useCallback(
+    async (userId: number, choreId: number, weekday: number) => {
+      if (!supabase) return;
+      await supabase.from("assignments").insert({ user_id: userId, chore_id: choreId, weekday });
+      refresh();
+    },
+    [supabase, refresh]
+  );
+
+  const deleteAssignment = useCallback(
+    async (id: number) => {
+      if (!supabase) return;
+      await supabase.from("assignments").delete().eq("id", id);
+      refresh();
+    },
+    [supabase, refresh]
+  );
+
+  return { profiles, chores, logs, assignments, loading, error, logChore, decideLog, deleteLog, updateChore, addChore, deleteChore, resetLogs, addAssignment, deleteAssignment, refresh };
 }

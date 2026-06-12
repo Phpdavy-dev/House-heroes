@@ -1,4 +1,4 @@
-import { Chore, ChoreLog, Profile } from "./types";
+import { Assignment, Chore, ChoreLog, Profile } from "./types";
 import {
   addDays,
   dayKey,
@@ -252,4 +252,61 @@ export function noticesFor(
     out.push({ id: "overtaken", text: "Je bent ingehaald op het scorebord. 👀", tone: "warn" });
 
   return out;
+}
+
+// ===== Vaste taken per weekdag =====
+
+export const WEEKDAY_NAMES = [
+  "maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag",
+];
+
+/** Vandaag als ISO-weekdag: 1 = maandag ... 7 = zondag */
+export function todayWeekday(now: Date = new Date()): number {
+  return ((now.getDay() + 6) % 7) + 1;
+}
+
+export type TodayTask = {
+  assignment: Assignment;
+  chore: Chore | undefined;
+  done: boolean;
+};
+
+/** Vaste taken van deze persoon voor vandaag, incl. of ze al geregistreerd zijn */
+export function todayTasksFor(
+  userId: number,
+  assignments: Assignment[],
+  chores: Chore[],
+  logs: ChoreLog[],
+  now: Date = new Date()
+): TodayTask[] {
+  const wd = todayWeekday(now);
+  const todayStart = startOfDay(now).getTime();
+  return assignments
+    .filter((a) => a.user_id === userId && a.weekday === wd)
+    .map((a) => {
+      const done = logs.some(
+        (l) =>
+          l.user_id === userId &&
+          l.chore_id === a.chore_id &&
+          l.status !== "rejected" &&
+          new Date(l.created_at).getTime() >= todayStart
+      );
+      return { assignment: a, chore: chores.find((c) => c.id === a.chore_id), done };
+    });
+}
+
+/** Meldingen voor openstaande vaste taken van vandaag */
+export function taskNoticesFor(
+  userId: number,
+  assignments: Assignment[],
+  chores: Chore[],
+  logs: ChoreLog[]
+): Notice[] {
+  return todayTasksFor(userId, assignments, chores, logs)
+    .filter((t) => !t.done && t.chore)
+    .map((t) => ({
+      id: `task-${t.assignment.id}`,
+      text: `📌 Vandaag jouw vaste taak: ${t.chore!.name} (+${t.chore!.points} ptn)`,
+      tone: "warn" as const,
+    }));
 }
