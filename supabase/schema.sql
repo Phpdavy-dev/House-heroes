@@ -88,3 +88,14 @@ alter table assignments enable row level security;
 create policy "read assignments" on assignments for select using (true);
 create policy "write assignments" on assignments for all using (true) with check (true);
 alter publication supabase_realtime add table assignments;
+
+-- ===== Update: instelbaar weekdoel =====
+create table if not exists settings (
+  key text primary key,
+  value int not null
+);
+insert into settings (key, value) values ('week_goal', 7) on conflict (key) do nothing;
+alter table settings enable row level security;
+create policy "read settings" on settings for select using (true);
+create policy "write settings" on settings for all using (true) with check (true);
+alter publication supabase_realtime add table settings;

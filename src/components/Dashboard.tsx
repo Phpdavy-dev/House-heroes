@@ -16,7 +16,8 @@ import {
   canApprove,
   levelFor,
   taskNoticesFor,
-  todayTasksFor,
+  weekTasksFor,
+  WEEKDAY_NAMES,
   logsBetween,
   logsOf,
   noticesFor,
@@ -24,7 +25,6 @@ import {
   streaks,
   sumPoints,
   weekGoalStatus,
-  WEEK_GOAL_CHORES,
 } from "@/lib/gamification";
 import { playApprove, playGoal } from "@/lib/sounds";
 
@@ -46,7 +46,7 @@ export default function Dashboard({
   data: HouseData;
   goLog: () => void;
 }) {
-  const { profiles, chores, logs, assignments, decideLog } = data;
+  const { profiles, chores, logs, assignments, weekGoal, decideLog } = data;
   const weekStart = startOfWeek();
   const monthStart = startOfMonth();
   const approved = approvedLogs(logs);
@@ -63,16 +63,17 @@ export default function Dashboard({
   const myRank = rows.find((r) => r.profile.id === me.id)?.rank ?? "-";
 
   const avgPerDay = (myWeek.length / daysElapsedThisWeek()).toFixed(1);
-  const goal = weekGoalStatus(myWeek.length);
-  const progress = Math.min(1, myWeek.length / WEEK_GOAL_CHORES);
+  const goal = weekGoalStatus(myWeek.length, weekGoal);
+  const progress = Math.min(1, myWeek.length / weekGoal);
   const level = levelFor(totalPoints);
   const { current: streak } = streaks(myAll);
 
   const notices = [
     ...taskNoticesFor(me.id, assignments, chores, logs),
-    ...noticesFor(me, profiles, logs),
+    ...noticesFor(me, profiles, logs, weekGoal),
   ];
-  const todayTasks = todayTasksFor(me.id, assignments, chores, logs);
+  const myWeekTasks = weekTasksFor(me.id, assignments, chores, logs);
+  const todayTasks = myWeekTasks.filter((t) => t.isToday);
   const pendingForMe = canApprove(me)
     ? logs.filter((l) => l.status === "pending" && l.user_id !== me.id)
     : [];
@@ -81,13 +82,13 @@ export default function Dashboard({
   const celebrated = useRef(false);
   useEffect(() => {
     const key = `hh-goal-${me.id}-${weekStart.toISOString().slice(0, 10)}`;
-    if (myWeek.length >= WEEK_GOAL_CHORES && !celebrated.current && !localStorage.getItem(key)) {
+    if (myWeek.length >= weekGoal && !celebrated.current && !localStorage.getItem(key)) {
       celebrated.current = true;
       localStorage.setItem(key, "1");
       confetti({ particleCount: 160, spread: 80, origin: { y: 0.6 } });
       playGoal();
     }
-  }, [myWeek.length, me.id, weekStart]);
+  }, [myWeek.length, weekGoal, me.id, weekStart]);
 
   // Huisheld van vorige week / maand
   const prevWeekRows = ranking(profiles, logs, addDays(weekStart, -7), weekStart);
@@ -106,6 +107,64 @@ export default function Dashboard({
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Klus van vandaag + weekplanning */}
+      {myWeekTasks.length > 0 && (
+        <section className="animate-rise">
+          {todayTasks.length > 0 && (
+            <div className="card mb-3 border-2 border-coral/40 p-4">
+              <h2 className="text-sm font-black uppercase tracking-wide text-coral-deep dark:text-coral">
+                📌 Klus van vandaag!
+              </h2>
+              <div className="mt-1 divide-y divide-ink/5 dark:divide-night-line">
+                {todayTasks.map((t) => (
+                  <div key={t.assignment.id} className="flex items-center gap-3 py-2">
+                    <span className="text-2xl">{t.chore?.emoji ?? "🧹"}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className={`truncate font-extrabold ${t.done ? "line-through opacity-50" : ""}`}>
+                        {t.chore?.name ?? "verwijderde klus"}
+                      </p>
+                      <p className="text-xs font-bold text-ink/40 dark:text-cream/40">
+                        +{t.chore?.points ?? 0} ptn
+                      </p>
+                    </div>
+                    {t.done ? (
+                      <span className="chip bg-teal-soft text-teal-deep dark:bg-teal/20 dark:text-teal">✓ gedaan</span>
+                    ) : (
+                      <button onClick={goLog} className="btn-big bg-coral px-3 py-2 text-sm text-white">
+                        Doen
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {myWeekTasks.some((t) => !t.isToday) && (
+            <div className="card p-4">
+              <h2 className="text-sm font-black uppercase tracking-wide text-ink/40 dark:text-cream/40">
+                Jouw taken deze week
+              </h2>
+              <div className="mt-1 divide-y divide-ink/5 dark:divide-night-line">
+                {myWeekTasks
+                  .filter((t) => !t.isToday)
+                  .map((t) => (
+                    <div key={t.assignment.id} className="flex items-center gap-3 py-2">
+                      <span className="text-xl">{t.chore?.emoji ?? "🧹"}</span>
+                      <p className="min-w-0 flex-1 truncate text-sm font-extrabold">
+                        {t.chore?.name ?? "verwijderde klus"}
+                      </p>
+                      <span className="chip bg-ink/5 capitalize dark:bg-cream/10">
+                        {WEEKDAY_NAMES[t.assignment.weekday - 1]}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
       {/* Hoofdkaart */}
       <section className="card animate-rise p-5">
         <div className="flex items-start justify-between">
@@ -129,7 +188,7 @@ export default function Dashboard({
         <div className="mt-4">
           <div className="mb-1 flex justify-between text-sm font-bold">
             <span>
-              Weekdoel: {myWeek.length}/{WEEK_GOAL_CHORES} klusjes
+              Weekdoel: {myWeek.length}/{weekGoal} klusjes
             </span>
             <span
               className={
@@ -173,37 +232,6 @@ export default function Dashboard({
       >
         + Klus registreren
       </button>
-
-      {/* Vaste taken van vandaag */}
-      {todayTasks.length > 0 && (
-        <section className="animate-rise">
-          <h2 className="mb-2 px-1 text-sm font-black uppercase tracking-wide text-ink/40 dark:text-cream/40">
-            Jouw vaste taken vandaag
-          </h2>
-          <div className="card divide-y divide-ink/5 dark:divide-night-line">
-            {todayTasks.map((t) => (
-              <div key={t.assignment.id} className="flex items-center gap-3 p-3">
-                <span className="text-2xl">{t.chore?.emoji ?? "🧹"}</span>
-                <div className="min-w-0 flex-1">
-                  <p className={`truncate font-extrabold ${t.done ? "line-through opacity-50" : ""}`}>
-                    {t.chore?.name ?? "verwijderde klus"}
-                  </p>
-                  <p className="text-xs font-bold text-ink/40 dark:text-cream/40">
-                    +{t.chore?.points ?? 0} ptn
-                  </p>
-                </div>
-                {t.done ? (
-                  <span className="chip bg-teal-soft text-teal-deep dark:bg-teal/20 dark:text-teal">✓ gedaan</span>
-                ) : (
-                  <button onClick={goLog} className="btn-big bg-coral px-3 py-2 text-sm text-white">
-                    Doen
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
 
       {/* Meldingen */}
       {notices.length > 0 && (

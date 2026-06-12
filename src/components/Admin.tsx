@@ -9,7 +9,7 @@ import { WEEKDAY_NAMES } from "@/lib/gamification";
 type HouseData = ReturnType<typeof useHouseData>;
 
 export default function Admin({ me, data }: { me: Profile; data: HouseData }) {
-  const { chores, profiles, logs, assignments, updateChore, addChore, deleteChore, deleteLog, resetLogs, addAssignment, deleteAssignment } = data;
+  const { chores, profiles, logs, assignments, weekGoal, updateChore, addChore, deleteChore, deleteLog, resetLogs, addAssignment, deleteAssignment, setWeekGoal } = data;
   const [taskUser, setTaskUser] = useState(0);
   const [taskChore, setTaskChore] = useState(0);
   const [taskDay, setTaskDay] = useState(1);
@@ -170,6 +170,31 @@ export default function Admin({ me, data }: { me: Profile; data: HouseData }) {
               </div>
             );
           })}
+        </div>
+      </section>
+
+      {/* Weekdoel */}
+      <section className="card flex flex-col gap-2 p-4">
+        <h2 className="text-sm font-black uppercase tracking-wide text-ink/40 dark:text-cream/40">
+          Weekdoel
+        </h2>
+        <p className="-mt-1 text-xs font-bold text-ink/40 dark:text-cream/40">
+          Hoeveel klusjes moet iedereen per week doen? Geldt voor de voortgangsbalk, de kleuren en de meldingen.
+        </p>
+        <div className="flex items-center gap-3">
+          <input
+            type="number"
+            min={1}
+            max={50}
+            defaultValue={weekGoal}
+            key={weekGoal}
+            onBlur={(e) => {
+              const v = Number(e.target.value);
+              if (v >= 1 && v !== weekGoal) setWeekGoal(v);
+            }}
+            className="w-20 rounded-lg border border-ink/10 bg-transparent px-2 py-2 text-right text-lg font-black dark:border-night-line"
+          />
+          <span className="text-sm font-extrabold text-ink/50 dark:text-cream/50">klusjes per week, per persoon</span>
         </div>
       </section>
 

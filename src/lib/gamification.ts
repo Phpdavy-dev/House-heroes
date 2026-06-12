@@ -91,12 +91,13 @@ export function streaks(userApproved: ChoreLog[]) {
 
 export type GoalStatus = "voor" | "op_schema" | "bijna_achter" | "achter";
 
-export function weekGoalStatus(choresDoneThisWeek: number): {
+export function weekGoalStatus(choresDoneThisWeek: number, goal: number = WEEK_GOAL_CHORES): {
   status: GoalStatus;
   expected: number;
   diff: number;
 } {
-  const expected = Math.min(daysElapsedThisWeek(), WEEK_GOAL_CHORES);
+  // verwacht tempo: evenredig deel van het weekdoel, naar boven afgerond
+  const expected = Math.min(Math.ceil((daysElapsedThisWeek() * goal) / 7), goal);
   const diff = choresDoneThisWeek - expected;
   let status: GoalStatus;
   if (diff > 0) status = "voor";
@@ -191,13 +192,14 @@ export type Notice = { id: string; text: string; tone: "good" | "warn" | "bad" |
 export function noticesFor(
   me: Profile,
   profiles: Profile[],
-  logs: ChoreLog[]
+  logs: ChoreLog[],
+  goal: number = WEEK_GOAL_CHORES
 ): Notice[] {
   const out: Notice[] = [];
   const weekStart = startOfWeek();
   const approved = approvedLogs(logs);
   const myWeek = logsOf(logsBetween(approved, weekStart), me.id);
-  const { status, diff } = weekGoalStatus(myWeek.length);
+  const { status, diff } = weekGoalStatus(myWeek.length, goal);
 
   // goedkeuringen die op mij wachten (alleen voor goedkeurders)
   const pendingOthers = canApprove(me)
@@ -228,7 +230,7 @@ export function noticesFor(
     out.push({ id: "ahead", text: "Goed bezig! Je ligt voor op schema. 🎉", tone: "good" });
 
   const left = daysLeftThisWeek();
-  if (left <= 3 && myWeek.length < WEEK_GOAL_CHORES)
+  if (left <= 3 && myWeek.length < goal)
     out.push({
       id: "daysleft",
       text: `Nog ${left === 0 ? "vandaag" : `${left + 1} dagen`} om je weekdoel te halen.`,
@@ -309,4 +311,40 @@ export function taskNoticesFor(
       text: `📌 Vandaag jouw vaste taak: ${t.chore!.name} (+${t.chore!.points} ptn)`,
       tone: "warn" as const,
     }));
+}
+
+
+export type WeekTask = {
+  assignment: Assignment;
+  chore: Chore | undefined;
+  isToday: boolean;
+  done: boolean; // alleen relevant voor vandaag
+};
+
+/** Alle vaste taken van deze persoon, gesorteerd vanaf vandaag de week rond */
+export function weekTasksFor(
+  userId: number,
+  assignments: Assignment[],
+  chores: Chore[],
+  logs: ChoreLog[],
+  now: Date = new Date()
+): WeekTask[] {
+  const wd = todayWeekday(now);
+  const todayStart = startOfDay(now).getTime();
+  return assignments
+    .filter((a) => a.user_id === userId)
+    .map((a) => {
+      const isToday = a.weekday === wd;
+      const done =
+        isToday &&
+        logs.some(
+          (l) =>
+            l.user_id === userId &&
+            l.chore_id === a.chore_id &&
+            l.status !== "rejected" &&
+            new Date(l.created_at).getTime() >= todayStart
+        );
+      return { assignment: a, chore: chores.find((c) => c.id === a.chore_id), isToday, done };
+    })
+    .sort((x, y) => ((x.assignment.weekday - wd + 7) % 7) - ((y.assignment.weekday - wd + 7) % 7));
 }
